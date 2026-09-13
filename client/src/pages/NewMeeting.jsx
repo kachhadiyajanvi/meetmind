@@ -1,31 +1,53 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { Brain, LayoutDashboard, Plus, ArrowLeft } from 'lucide-react';
+import { Brain, LayoutDashboard, Plus, ArrowLeft, Upload, FileText, Mic } from 'lucide-react';
 
 const NewMeeting = () => {
-    const { apiUrl } = useContext(AuthContext);
+    useContext(AuthContext);
     const navigate = useNavigate();
     const [title, setTitle] = useState('');
     const [transcript, setTranscript] = useState('');
+    const [inputMode, setInputMode] = useState('paste'); // 'paste' | 'file' | 'audio'
+    const [fileUrl, setFileUrl] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Future feature: Handle file upload logic for TXT/PDF (TXT is direct read, PDF would need parsing)
-    const handleFileUpload = (e) => {
+    const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            setTranscript(event.target.result);
-        };
-        // If it's just TXT
-        if (file.type === 'text/plain') {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'txt') {
+            const reader = new FileReader();
+            reader.onload = (event) => setTranscript(event.target.result);
             reader.readAsText(file);
-        } else {
-            setError("Currently only TXT files can be directly parsed here. Please paste transcript for other formats or implement backend parse.");
+            setInputMode('file');
+            setFileUrl('');
+            return;
+        }
+
+        // For other types (pdf, docx, audio) upload to server and let backend store
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            const { data } = await api.post(`/uploads`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+            if (data.extractedText) {
+                setTranscript(data.extractedText);
+            }
+            if (data.url) {
+                setFileUrl(data.url);
+                // if no extracted text, set a placeholder transcript so meeting can be created
+                if (!data.extractedText) {
+                    if (ext === 'mp3' || ext === 'wav') setTranscript(`Audio uploaded: ${data.url}`);
+                    else setTranscript(`File uploaded: ${data.url}`);
+                }
+            }
+            setInputMode(ext === 'mp3' || ext === 'wav' ? 'audio' : 'file');
+        } catch (err) {
+            console.error('Upload failed', err);
+            setError('File upload failed.');
         }
     };
 
@@ -40,10 +62,11 @@ const NewMeeting = () => {
 
         try {
             // 1. Create meeting
-            const { data } = await api.post(`/meetings`, { title, transcript });
+            const payload = { title, transcript, transcriptType: inputMode, fileUrl };
+            const { data } = await api.post(`/meetings`, payload);
 
-            // 2. Head to results screen
-            navigate(`/meetings/${data._id}`);
+            // 2. Head to processing screen which will trigger AI analysis, then redirect to results
+            navigate(`/meetings/${data._id}/processing`);
         } catch (err) {
             console.error(err);
             setError("Failed to create meeting.");
@@ -87,31 +110,44 @@ const NewMeeting = () => {
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Meeting Transcript</label>
-                            <textarea
-                                value={transcript}
-                                onChange={(e) => setTranscript(e.target.value)}
-                                rows={10}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-mono text-sm text-slate-700 resize-none h-64"
-                                placeholder="Paste the raw meeting conversation here..."
-                            ></textarea>
-                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Transcript box */}
+                            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 h-64 flex flex-col">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-2 bg-white rounded-xl shadow-sm"><FileText className="w-5 h-5 text-slate-600" /></div>
+                                        <h4 className="text-sm font-semibold text-slate-800">Transcript</h4>
+                                    </div>
+                                    <span className="text-xs text-slate-500">Paste</span>
+                                </div>
+                                <textarea
+                                    value={transcript}
+                                    onChange={(e) => setTranscript(e.target.value)}
+                                    className="flex-1 w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-mono text-slate-700 resize-none outline-none"
+                                    placeholder="Paste the raw meeting conversation here..."
+                                />
+                            </div>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center justify-between">
-                                <span>Or upload a .txt transcript</span>
+                            {/* File upload box */}
+                            <label className="cursor-pointer bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center h-64 text-center">
+                                <Upload className="w-8 h-8 text-blue-600 mb-3" />
+                                <div className="text-sm font-semibold text-slate-800 mb-1">Upload Transcript File</div>
+                                <div className="text-xs text-slate-500 mb-3">.txt, .pdf, .docx</div>
+                                <div className="text-xs text-slate-400">Click or drag file to upload</div>
+                                <input type="file" onChange={handleFileUpload} accept=".txt,.pdf,.docx" className="hidden" />
                             </label>
-                            <input type="file" onChange={handleFileUpload} accept=".txt" className="block w-full text-sm text-slate-500
-                file:mr-4 file:py-2.5 file:px-4
-                file:rounded-xl file:border-0
-                file:text-sm file:font-semibold
-                file:bg-blue-50 file:text-blue-700
-                hover:file:bg-blue-100 transition-all cursor-pointer border border-slate-200 rounded-xl p-1"
-                            />
+
+                            {/* Audio upload box */}
+                            <label className="cursor-pointer bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center h-64 text-center">
+                                <Mic className="w-8 h-8 text-pink-600 mb-3" />
+                                <div className="text-sm font-semibold text-slate-800 mb-1">Upload Audio</div>
+                                <div className="text-xs text-slate-500 mb-3">.mp3, .wav</div>
+                                <div className="text-xs text-slate-400">Upload audio for transcription</div>
+                                <input type="file" onChange={handleFileUpload} accept=".mp3,.wav" className="hidden" />
+                            </label>
                         </div>
 
-                        <div className="pt-4 flex justify-end">
+                        <div className="pt-4 flex justify-center">
                             <button
                                 disabled={loading}
                                 onClick={handleCreate}

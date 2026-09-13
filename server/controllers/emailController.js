@@ -48,12 +48,16 @@ const emailMeetingReport = async (req, res) => {
             htmlContent += `<p>No tasks recorded.</p>`;
         }
 
-        await sendEmail({
+        const result = await sendEmail({
             email,
             subject: `Meeting Report: ${meeting.title}`,
             message: `Find the meeting details attached.`,
             html: htmlContent
         });
+
+        if (result && result.simulated) {
+            return res.json({ message: 'SMTP not configured — email saved to exports', url: result.url });
+        }
 
         res.json({ message: 'Email sent successfully' });
     } catch (error) {

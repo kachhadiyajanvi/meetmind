@@ -16,3 +16,14 @@ body {
   background-color: #f8fafc;
   color: var(--color-dark-900);
 }
+
+img, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent horizontal overflow caused by long words or pre blocks */
+* {
+  box-sizing: border-box;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }

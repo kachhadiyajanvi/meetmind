@@ -24,6 +24,9 @@ router.route('/:id')
 router.route('/:id/tasks')
     .post(protect, addTask);
 
+router.route('/tasks/summary')
+    .get(protect, require('../controllers/meetingController').getTaskCounts);
+
 router.route('/:id/tasks/:taskId')
     .put(protect, updateTask)
     .delete(protect, deleteTask);

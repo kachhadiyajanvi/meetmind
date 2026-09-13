@@ -1,12 +1,16 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { ArrowLeft, Edit2, Trash2, Check, Download, Mail, Plus, X, Brain } from 'lucide-react';
+import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+import Skeleton from '../components/ui/Skeleton';
+import { ToastContext } from '../components/ui/ToastContext';
 
 const Results = () => {
     const { id } = useParams();
-    const { apiUrl } = useContext(AuthContext);
+    useContext(AuthContext);
     const [meeting, setMeeting] = useState(null);
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -23,11 +27,11 @@ const Results = () => {
 
     useEffect(() => {
         fetchMeetingData();
-    }, [id, apiUrl]);
+    }, [id]);
 
     const fetchMeetingData = async () => {
         try {
-            const { data } = await axios.get(`${apiUrl}/meetings/${id}`);
+            const { data } = await api.get(`/meetings/${id}`);
             setMeeting(data.meeting);
             setTasks(data.tasks);
         } catch (err) {
@@ -46,24 +50,38 @@ const Results = () => {
         }
     };
 
+    const { addToast } = useContext(ToastContext);
+
     const handleExport = async (type) => {
         try {
-            const { data } = await axios.get(`${apiUrl}/meetings/${id}/export/${type}`);
-            // Usually would window.open but server returns path
-            window.open(`https://meetmind-cj0u.onrender.com/${data.url}`, '_blank');
+            const { data } = await api.get(`/meetings/${id}/export/${type}`);
+            const base = api.defaults.baseURL ? api.defaults.baseURL.replace(/\/api$/, '') : '';
+            const url = data.url.startsWith('/') ? `${base}${data.url}` : data.url;
+            window.open(url, '_blank');
+            addToast({ title: 'Export ready', message: `Opened ${type.toUpperCase()} export`, duration: 4000 });
         } catch (err) {
             console.error('Export error', err);
+            addToast({ title: 'Export failed', message: err.response?.data?.message || 'Export failed', variant: 'error' });
         }
     };
 
     const handleSendEmail = async () => {
         setEmailStatus('sending');
         try {
-            await axios.post(`${apiUrl}/meetings/${id}/email`, { email: emailTo });
+            const { data } = await api.post(`/meetings/${id}/email`, { email: emailTo });
             setEmailStatus('success');
+            if (data && data.url) {
+                const base = api.defaults.baseURL ? api.defaults.baseURL.replace(/\/api$/, '') : '';
+                const url = data.url.startsWith('/') ? `${base}${data.url}` : data.url;
+                addToast({ title: 'Email saved', message: `Email saved: ${url}` });
+                window.open(url, '_blank');
+            } else {
+                addToast({ title: 'Email sent', message: data.message || 'Email sent successfully' });
+            }
             setTimeout(() => { setShowEmailModal(false); setEmailStatus(''); }, 2000);
         } catch (err) {
             setEmailStatus('error');
+            addToast({ title: 'Email failed', message: err.response?.data?.message || 'Failed to send email', variant: 'error' });
         }
     };
 
@@ -75,7 +93,7 @@ const Results = () => {
 
     const saveEdit = async () => {
         try {
-            await axios.put(`${apiUrl}/meetings/${id}/tasks/${editingTask}`, editForm);
+            await api.put(`/meetings/${id}/tasks/${editingTask}`, editForm);
             setTasks(tasks.map(t => t._id === editingTask ? { ...t, ...editForm } : t));
             setEditingTask(null);
         } catch (err) {
@@ -85,7 +103,7 @@ const Results = () => {
 
     const saveNewTask = async () => {
         try {
-            const { data } = await axios.post(`${apiUrl}/meetings/${id}/tasks`, editForm);
+            const { data } = await api.post(`/meetings/${id}/tasks`, editForm);
             setTasks([...tasks, data]);
             setIsAddingTask(false);
         } catch (err) {
@@ -96,7 +114,7 @@ const Results = () => {
     const deleteTask = async (taskId) => {
         if (!window.confirm('Are you sure?')) return;
         try {
-            await axios.delete(`${apiUrl}/meetings/${id}/tasks/${taskId}`);
+            await api.delete(`/meetings/${id}/tasks/${taskId}`);
             setTasks(tasks.filter(t => t._id !== taskId));
         } catch (err) {
             console.error(err);
@@ -106,7 +124,10 @@ const Results = () => {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <div className="text-slate-500">Loading meeting and AI insights...</div>
+                </div>
             </div>
         );
     }
@@ -124,7 +145,7 @@ const Results = () => {
                         </Link>
                         <div>
                             <h1 className="text-xl font-bold tracking-tight text-slate-900">{meeting.title}</h1>
-                            <p className="text-sm text-slate-500">Processed on {new Date(meeting.updatedAt).toLocaleDateString()}</p>
+                            <p className="text-sm text-slate-500">Processed on {new Date(meeting.updatedAt).toLocaleString()}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -148,14 +169,15 @@ const Results = () => {
                 {/* Core Info */}
                 <div className="grid md:grid-cols-3 gap-8">
                     <div className="md:col-span-2 space-y-8">
-                        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                                <Brain className="w-5 h-5 text-blue-600" /> AI Executive Summary
-                            </h2>
-                            <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">{meeting.summary}</p>
-                        </div>
+                                <Card>
+                                    <div className="flex items-start gap-4 mb-4">
+                                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Brain className="w-5 h-5" /></div>
+                                        <h2 className="text-lg font-bold text-slate-900">AI Executive Summary</h2>
+                                    </div>
+                                    <div className="text-slate-700 leading-relaxed whitespace-pre-wrap">{meeting.summary || <span className="text-slate-400">No summary available.</span>}</div>
+                                </Card>
 
-                        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                        <Card>
                             <h2 className="text-lg font-bold text-slate-900 mb-4">Key Decisions</h2>
                             <ul className="space-y-3">
                                 {meeting.decisions && meeting.decisions.length > 0 ? (
@@ -169,7 +191,7 @@ const Results = () => {
                                     <p className="text-slate-500 italic">No explicit decisions identified.</p>
                                 )}
                             </ul>
-                        </div>
+                        </Card>
                     </div>
 
                     <div className="md:col-span-1">
@@ -272,7 +294,7 @@ const Results = () => {
                                                 ) : (
                                                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ opacity: 1 }}>
                                                         <button onClick={async () => {
-                                                            await axios.put(`${apiUrl}/meetings/${id}/tasks/${t._id}`, { status: t.status === 'Completed' ? 'Pending' : 'Completed' });
+                                                            await api.put(`/meetings/${id}/tasks/${t._id}`, { status: t.status === 'Completed' ? 'Pending' : 'Completed' });
                                                             setTasks(tasks.map(task => task._id === t._id ? { ...task, status: t.status === 'Completed' ? 'Pending' : 'Completed' } : task));
                                                         }} className={`p-2 rounded-lg transition-colors ${t.status === 'Completed' ? 'text-green-600 bg-green-50' : 'text-slate-400 hover:bg-slate-100'}`} title="Mark completed">
                                                             <Check className="w-4 h-4" />

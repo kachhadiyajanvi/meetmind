@@ -34,14 +34,16 @@ const getMeetingById = async (req, res) => {
 // @access  Private
 const createMeeting = async (req, res) => {
     try {
-        const { title, transcript } = req.body;
-        if (!title || !transcript) {
-            return res.status(400).json({ message: 'Title and transcript are required' });
+        const { title, transcript, fileUrl, transcriptType } = req.body;
+        if (!title || (!transcript && !fileUrl)) {
+            return res.status(400).json({ message: 'Title and transcript or uploaded file is required' });
         }
         const meeting = await Meeting.create({
             userId: req.user.id,
             title,
-            transcript
+            transcript,
+            fileUrl: fileUrl || '',
+            transcriptType: transcriptType || 'text'
         });
         res.status(201).json(meeting);
     } catch (error) {
@@ -140,6 +142,28 @@ const deleteTask = async (req, res) => {
     }
 };
 
+// @desc    Get task counts (high priority, pending, completed) for current user
+// @route   GET /api/meetings/tasks/summary
+// @access  Private
+const getTaskCounts = async (req, res) => {
+    try {
+        const meetings = await Meeting.find({ userId: req.user.id }, { _id: 1 });
+        const meetingIds = meetings.map(m => m._id);
+
+        if (meetingIds.length === 0) {
+            return res.json({ high: 0, pending: 0, completed: 0 });
+        }
+
+        const high = await Task.countDocuments({ sourceMeetingId: { $in: meetingIds }, priority: 'High' });
+        const pending = await Task.countDocuments({ sourceMeetingId: { $in: meetingIds }, status: 'Pending' });
+        const completed = await Task.countDocuments({ sourceMeetingId: { $in: meetingIds }, status: 'Completed' });
+
+        res.json({ high, pending, completed });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
 module.exports = {
     getMeetings,
     getMeetingById,
@@ -149,4 +173,5 @@ module.exports = {
     addTask,
     updateTask,
     deleteTask
+    , getTaskCounts
 };

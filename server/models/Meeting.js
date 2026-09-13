@@ -14,6 +14,15 @@ const meetingSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    fileUrl: {
+        type: String,
+        default: ''
+    },
+    transcriptType: {
+        type: String,
+        enum: ['text','upload','audio'],
+        default: 'text'
+    },
     summary: {
         type: String,
         default: ''

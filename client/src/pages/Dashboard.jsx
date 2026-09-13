@@ -3,11 +3,16 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { Plus, Users, LayoutDashboard, Brain, Clock, ChevronRight, LogOut, CheckCircle, AlertTriangle, FileText } from 'lucide-react';
+import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+import Skeleton from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
 
 const Dashboard = () => {
     const { user, logout } = useContext(AuthContext);
     const [meetings, setMeetings] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [counts, setCounts] = useState({ high: 0, pending: 0, completed: 0 });
 
     useEffect(() => {
         const fetchMeetings = async () => {
@@ -15,6 +20,13 @@ const Dashboard = () => {
                 const { data } = await api.get(`/meetings`);
                 // we'll just fetch meetings for now, in a real app we'd fetch tasks too to count them
                 setMeetings(data);
+                // fetch task counts
+                try {
+                    const { data: c } = await api.get('/meetings/tasks/summary');
+                    setCounts(c);
+                } catch (e) {
+                    console.warn('Failed to fetch task counts', e);
+                }
             } catch (err) {
                 console.error(err);
             } finally {
@@ -67,35 +79,38 @@ const Dashboard = () => {
                     <div className="max-w-6xl mx-auto space-y-8">
 
                         {/* Metrics */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <Card className="flex items-center gap-4">
                                 <div className="p-3 bg-blue-100 text-blue-600 rounded-xl"><LayoutDashboard className="w-6 h-6" /></div>
                                 <div>
                                     <p className="text-sm font-medium text-slate-500">Total Meetings</p>
-                                    <h3 className="text-2xl font-bold text-slate-900">{meetings.length}</h3>
+                                    <h3 className="text-2xl font-bold text-slate-900">{loading ? <span className="inline-block w-20 h-6"><Skeleton className="h-6 w-20" /></span> : meetings.length}</h3>
                                 </div>
-                            </div>
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            </Card>
+
+                            <Card className="flex items-center gap-4">
                                 <div className="p-3 bg-red-100 text-red-600 rounded-xl"><AlertTriangle className="w-6 h-6" /></div>
                                 <div>
                                     <p className="text-sm font-medium text-slate-500">High Priority Tasks</p>
-                                    <h3 className="text-2xl font-bold text-slate-900">-</h3>
+                                    <h3 className="text-2xl font-bold text-slate-900">{loading ? <Skeleton className="h-6 w-12" /> : counts.high}</h3>
                                 </div>
-                            </div>
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            </Card>
+
+                            <Card className="flex items-center gap-4">
                                 <div className="p-3 bg-orange-100 text-orange-600 rounded-xl"><Clock className="w-6 h-6" /></div>
                                 <div>
                                     <p className="text-sm font-medium text-slate-500">Pending Tasks</p>
-                                    <h3 className="text-2xl font-bold text-slate-900">-</h3>
+                                    <h3 className="text-2xl font-bold text-slate-900">{loading ? <Skeleton className="h-6 w-12" /> : counts.pending}</h3>
                                 </div>
-                            </div>
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            </Card>
+
+                            <Card className="flex items-center gap-4">
                                 <div className="p-3 bg-green-100 text-green-600 rounded-xl"><CheckCircle className="w-6 h-6" /></div>
                                 <div>
                                     <p className="text-sm font-medium text-slate-500">Completed Tasks</p>
-                                    <h3 className="text-2xl font-bold text-slate-900">-</h3>
+                                    <h3 className="text-2xl font-bold text-slate-900">{loading ? <Skeleton className="h-6 w-12" /> : counts.completed}</h3>
                                 </div>
-                            </div>
+                            </Card>
                         </div>
 
                         {/* Recent Meetings */}
@@ -103,32 +118,21 @@ const Dashboard = () => {
                             <h2 className="text-lg font-bold text-slate-800 mb-4">Recent Meetings</h2>
                             {loading ? (
                                 <div className="flex justify-center p-12">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
                                 </div>
                             ) : meetings.length === 0 ? (
-                                <div className="bg-white rounded-2xl border border-slate-200 stroke-slate-200 border-dashed p-12 flex flex-col items-center justify-center text-center">
-                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                                        <FileText className="w-8 h-8 text-slate-400" />
-                                    </div>
-                                    <h3 className="text-lg font-medium text-slate-900 mb-1">No meetings yet</h3>
-                                    <p className="text-slate-500 mb-6">Create your first meeting to get started.</p>
-                                    <Link to="/meetings/new" className="px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors">
-                                        Create Meeting
-                                    </Link>
-                                </div>
+                                <EmptyState title="No meetings yet" description="Create your first meeting to get actionable insights." cta={<Link to="/meetings/new" className="px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors">Create Meeting</Link>} />
                             ) : (
                                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                     <ul className="divide-y divide-slate-200">
                                         {meetings.map((meeting) => (
                                             <li key={meeting._id}>
                                                 <Link to={`/meetings/${meeting._id}`} className="flex items-center justify-between p-6 hover:bg-slate-50 transition-colors group">
-                                                    <div>
-                                                        <h4 className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors mb-1">{meeting.title}</h4>
+                                                    <div className="min-w-0">
+                                                        <h4 className="text-lg font-semibold text-slate-900 truncate group-hover:text-blue-600 transition-colors mb-1">{meeting.title}</h4>
                                                         <div className="flex items-center gap-4 text-sm text-slate-500">
-                                                            <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {new Date(meeting.createdAt).toLocaleDateString()}</span>
-                                                            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-100">
-                                                                {meeting.summary ? 'Analyzed' : 'Raw'}
-                                                            </span>
+                                                            <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {new Date(meeting.createdAt).toLocaleString()}</span>
+                                                            <Badge variant={meeting.summary ? 'blue' : 'default'}>{meeting.summary ? 'Analyzed' : 'Raw'}</Badge>
                                                         </div>
                                                     </div>
                                                     <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />

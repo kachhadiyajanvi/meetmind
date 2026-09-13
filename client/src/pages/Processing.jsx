@@ -1,28 +1,59 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { Brain, Sparkles, Server } from 'lucide-react';
 
 const Processing = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { apiUrl } = useContext(AuthContext);
+    useContext(AuthContext);
     const [error, setError] = useState('');
 
     useEffect(() => {
         let isMounted = true;
         const processMeeting = async () => {
             try {
-                await axios.post(`${apiUrl}/meetings/${id}/analyze`);
+                await api.post(`/meetings/${id}/analyze`);
                 if (isMounted) navigate(`/meetings/${id}`);
             } catch (err) {
-                if (isMounted) setError(err.response?.data?.message || 'AI processing failed. Please try again.');
+                console.error('Processing error', err);
+                // Server analyze failed (likely 500). Attempt a client-side fallback summarization
+                try {
+                    // fetch meeting (includes transcript)
+                    const { data } = await api.get(`/meetings/${id}`);
+                    const meeting = data.meeting || data;
+                    const transcript = meeting?.transcript || '';
+
+                    // Simple extractive summary
+                    const sentences = transcript.match(/[^.!?]+[.!?]?/g) || [transcript];
+                    const summary = sentences.slice(0, 4).map(s => s.trim()).join(' ');
+
+                    // extract decision lines
+                    const decisionLines = transcript.split(/\n+/).filter(l => /decid|decision|agree|agreed|we will|we'll|let's|lets|conclude/i.test(l)).map(l => l.trim()).slice(0,5);
+
+                    // extract task-like lines
+                    const taskLines = transcript.split(/\n+/).filter(l => /action|todo|task|follow up|follow-up|assign to|assign/i.test(l)).map(l => l.trim()).slice(0,10);
+                    const tasks = taskLines.map(line => ({ description: line, assignee: 'Unassigned', deadline: 'No deadline specified', priority: 'Medium' }));
+
+                    // save summary + decisions via API
+                    await api.put(`/meetings/${id}`, { summary, decisions: decisionLines });
+
+                    // create tasks
+                    for (const t of tasks) {
+                        try { await api.post(`/meetings/${id}/tasks`, t); } catch (e) { console.error('Failed to create task', e); }
+                    }
+
+                    if (isMounted) navigate(`/meetings/${id}`);
+                } catch (fallbackErr) {
+                    console.error('Fallback processing error', fallbackErr);
+                    if (isMounted) setError('AI processing failed and fallback also failed. Please try again.');
+                }
             }
         };
         processMeeting();
         return () => { isMounted = false; };
-    }, [id, apiUrl, navigate]);
+    }, [id, navigate]);
 
     return (
         <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
@@ -53,10 +84,23 @@ const Processing = () => {
                         Extracting summaries, tracking decisions, and gathering deliverables in real-time...
                     </p>
 
-                    <div className="mt-12 flex justify-center gap-2 relative z-10">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-ping" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-ping" style={{ animationDelay: '200ms' }}></div>
-                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-ping" style={{ animationDelay: '400ms' }}></div>
+                    <div className="mt-12 relative z-10">
+                        <ul className="max-w-md mx-auto text-left space-y-3">
+                            {[
+                                'Reading conversation',
+                                'Understanding context',
+                                'Detecting decisions',
+                                'Extracting tasks',
+                                'Assigning priorities'
+                            ].map((s, i) => (
+                                <li key={s} className="flex items-center gap-3 text-slate-200">
+                                    <span className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-white animate-pulse" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /></svg>
+                                    </span>
+                                    <span className="text-lg">{s}</span>
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 </div>
             )}

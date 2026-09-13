@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const base = import.meta.env.VITE_API_URL || 'https://meetmind-cj0u.onrender.com/api';
+
 const api = axios.create({
-    baseURL: 'https://meetmind-cj0u.onrender.com/api',
+    baseURL: base,
 });
 
 // Add a request interceptor to attach JWT token

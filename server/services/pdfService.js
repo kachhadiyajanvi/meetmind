@@ -40,12 +40,31 @@ const generatePDF = async (meeting, tasks) => {
             }
             doc.moveDown();
 
-            // Tasks
+            // Tasks - render a clean table-like layout
+            doc.moveDown();
             doc.fontSize(16).text('Action Items');
+            doc.moveDown(0.5);
             if (tasks && tasks.length > 0) {
+                // Table header
+                const startX = doc.x;
+                const tableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+                const colWidths = [tableWidth * 0.45, tableWidth * 0.18, tableWidth * 0.18, tableWidth * 0.19];
+
+                doc.fontSize(12).fillColor('#0f172a').text('Task', startX, doc.y, { width: colWidths[0], continued: true });
+                doc.text('Assignee', { width: colWidths[1], continued: true });
+                doc.text('Deadline', { width: colWidths[2], continued: true });
+                doc.text('Priority', { width: colWidths[3] });
+                doc.moveDown(0.5);
+
+                // Divider
+                doc.strokeColor('#e6e9ee').lineWidth(1).moveTo(startX, doc.y).lineTo(startX + tableWidth, doc.y).stroke();
+                doc.moveDown(0.5);
+
                 tasks.forEach(t => {
-                    doc.fontSize(12).text(`- Task: ${t.description}`);
-                    doc.fontSize(10).text(`  Assignee: ${t.assignee} | Deadline: ${t.deadline} | Priority: ${t.priority} | Status: ${t.status}`);
+                    doc.fontSize(11).fillColor('#0f172a').text(t.description, { width: colWidths[0], continued: true });
+                    doc.text(t.assignee, { width: colWidths[1], continued: true });
+                    doc.text(t.deadline, { width: colWidths[2], continued: true });
+                    doc.text(t.priority, { width: colWidths[3] });
                     doc.moveDown(0.5);
                 });
             } else {

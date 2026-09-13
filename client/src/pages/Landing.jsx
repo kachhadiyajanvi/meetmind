@@ -34,18 +34,18 @@ const Landing = () => {
                             <span className="flex h-2 w-2 rounded-full bg-blue-600"></span>
                             MeetMind AI is now natively ready for Hackathons
                         </div>
-                        <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 mb-8 leading-tight">
-                            Turn conversations into <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-                                Actionable Intelligence
-                            </span>
+                        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-6 leading-tight">
+                            AI Meeting Intelligence
                         </h1>
-                        <p className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-                            Upload your meeting transcripts and let AI instantly extract summaries, key decisions, and prioritized tasks. Get more done in less time.
+                        <p className="text-xl text-slate-700 mb-6 max-w-2xl mx-auto leading-relaxed">
+                            From meeting conversations to actionable outcomes — automatically.
+                        </p>
+                        <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+                            Turn meeting conversations into summaries, decisions and actionable tasks.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
                             <Link to="/register" className="px-8 py-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-200 flex items-center justify-center gap-2 group text-lg">
-                                Start for free
+                                Try MeetMind AI
                                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                             </Link>
                         </div>
