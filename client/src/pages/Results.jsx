@@ -50,7 +50,7 @@ const Results = () => {
         try {
             const { data } = await axios.get(`${apiUrl}/meetings/${id}/export/${type}`);
             // Usually would window.open but server returns path
-            window.open(`http://localhost:5000${data.url}`, '_blank');
+            window.open(`https://meetmind-cj0u.onrender.com/${data.url}`, '_blank');
         } catch (err) {
             console.error('Export error', err);
         }
