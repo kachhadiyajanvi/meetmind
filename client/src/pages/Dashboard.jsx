@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { Plus, Users, LayoutDashboard, Brain, Clock, ChevronRight, LogOut, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Users, LayoutDashboard, Brain, Clock, ChevronRight, LogOut, CheckCircle, AlertTriangle, FileText } from 'lucide-react';
 
 const Dashboard = () => {
-    const { user, apiUrl, logout } = useContext(AuthContext);
+    const { user, logout } = useContext(AuthContext);
     const [meetings, setMeetings] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchMeetings = async () => {
             try {
-                const { data } = await axios.get(`${apiUrl}/meetings`);
+                const { data } = await api.get(`/meetings`);
                 // we'll just fetch meetings for now, in a real app we'd fetch tasks too to count them
                 setMeetings(data);
             } catch (err) {
@@ -22,7 +22,7 @@ const Dashboard = () => {
             }
         };
         fetchMeetings();
-    }, [apiUrl]);
+    }, []);
 
     return (
         <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">

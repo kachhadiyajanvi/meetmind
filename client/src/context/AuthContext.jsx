@@ -7,7 +7,7 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const apiUrl = 'http://localhost:5000/api'; // kept for non-axios pure uses if any remain, but we use api instance
+    const apiUrl = 'https://meetmind-cj0u.onrender.com/'; // kept for non-axios pure uses if any remain, but we use api instance
 
     useEffect(() => {
         const token = localStorage.getItem('token');
